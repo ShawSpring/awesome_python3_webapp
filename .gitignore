@@ -1,0 +1,50 @@
+*.py[cod]
+
+test.db
+test.txt
+test.py
+# Windows:
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Python:
+*.py[cod]
+*.so
+*.egg
+*.egg-info
+dist
+build
+
+# C extensions
+*.so
+
+
+# Installer logs
+pip-log.txt
+# Unit test / coverage reports
+.coverage
+.tox
+nosetests.xml
+
+######################
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+dist
+MANIFEST
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
