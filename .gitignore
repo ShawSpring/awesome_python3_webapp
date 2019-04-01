@@ -1,8 +1,8 @@
 *.py[cod]
-
+.vscode/
 test.db
 test.txt
-test.py
+test*.py
 # Windows:
 Thumbs.db
 ehthumbs.db
