@@ -4,20 +4,19 @@ import aiomysql, asyncio
 import logging
 logging.basicConfig(level=logging.INFO)
 
-
 def log(sql, args=()):
     logging.info('SQL:%s' % sql)
 
 
-async def create_pool(pool, **kw):
+async def create_pool(loop=None, **kw):
     logging.info('create database connection pool ...')
     global __pool
     __pool = await aiomysql.create_pool(
-        host=kw.get('host', 'localhost'),
+        host=kw.get('host', 'localhost'), #可以传参到kw, 也可以默认值
         port=kw.get('port', 3306),
-        user=kw['root'],
-        password=kw['mysql608213'],
-        db=kw['test'],
+        user=kw['user'],
+        password=kw['password'],
+        db=kw['db'],
         charset=kw.get('charset', 'utf8'),
         autocommit=kw.get('autocommit', True),
         maxsize=kw.get('maxsize', 10),
@@ -73,14 +72,29 @@ class Field(object):
         return "<%s,%s:%s>"%(self.__class__.__name__,self.name,self.column_type)
 
 class StringField(Field):
-    def __init__(self, name, column_type, primarykey=False, default=None,ddl='varchar(50)'):
+    def __init__(self, name=None, primarykey=False, default=None,ddl='varchar(50)'):
         return super().__init__(name, ddl, primarykey, default)
 
+class IntegerField(Field):
+    def __init__(self, name=None, primarykey=False, default=None,ddl='int'):
+        return super().__init__(name, ddl, primarykey, default)
+
+class FloatField(Field):
+    def __init__(self, name=None, primarykey=False, default=0.0):
+        return super().__init__(name, 'real', primarykey, default)
+
+class BooleanField(Field):
+    def __init__(self, name=None, default=False):
+        return super().__init__(name, 'boolean', False, default)
+
+class TextField(Field):
+    def __init__(self, name=None, default=None):
+        super().__init__(name, 'text', False, default)
 
 
 class ModelMetaclass(type):
     def __new__(cls,name,bases,attrs):
-        if name=="Model":
+        if name == "Model":
             return type.__new__(cls,name,bases,attrs)
         mappinngs={}
         primarykey = None
@@ -118,7 +132,7 @@ class ModelMetaclass(type):
 class Model(dict, metaclass=ModelMetaclass):
 
     def __init__(self, **kw):
-        return super().__init__(**kw)
+        super().__init__(**kw)
 
     def __getattr__(self, key):
         try:
@@ -132,14 +146,90 @@ class Model(dict, metaclass=ModelMetaclass):
     def getValue(self,key):
         return getattr(self,key,None)
 
-    def getValueOrDefault(self,key):
+    def getValueOrDefault(self,key):#在sql语句中需要保证 字段没有赋值则获取默认值
         value = getattr(self,key,None)
         if not value:
             field = self.__mappings__[key]
             if field.default is not None:
                 value = field.default() if callable(field.default) else field.default
                 logging.debug("get default value for %s:%s"%(key,str(value)))  #debug是最低的级别 CRITICAL > ERROR > WARNING > INFO > DEBUG
-
                 setattr(self,key,value)
         return value
          
+    @classmethod
+    async def find(cls,pk):
+    #' find object by primary key '
+        rs = await select('%s where %s = ?'%(cls.__select__,cls.__tablename__),pk,1)
+        if len(rs) ==0:
+            return None
+        return cls(*rs[0])
+
+    @classmethod
+    async def findNumber(cls,selectField,where=None,args=None):
+        #find number by selelct and where
+        sqlstr = 'select %s __num__ from %s'%(selectField,cls.__table__)
+        if where:
+            sqlstr+=' where '
+            sqlstr+'%s'%where
+        r = await select(sqlstr,args,1) #返回记录集
+        if len(r)==0: #返回记录条数为0
+            return None
+        #return rs[0]['__num__']
+        return rs[0][0] #返回第一条记录的第一个值
+    
+
+    @classmethod
+    async def findAll(cls,where=None,args=None,**kw):
+        sqlstr = [cls.__select__] #基本语句
+        if where:
+            sqlstr.append('where')
+            sqlstr.append(where)
+        if not args:
+            args = []
+
+        orderby = kw.get("orderby",None) #命名参数名,不加空格
+        if orderby:
+            sqlstr.append('order by')
+            sqlstr.append(orderby)
+
+        limit = kw.get('limit',None)
+        if limit:
+            sqlstr.append('limit')
+            if isinstance(limit,int):
+                sqlstr.append(limit)
+            elif isinstance(limit,tuple) and len(limit)==2:
+                sqlstr.append("%s,%s"%(limit[0],limit[1]))
+            else:
+                raise ValueError('Invalid limit value: %s'%str(limit))
+        rs = await select(' '.join(sqlstr),args)
+        return [cls(**r) for r in rs]
+    
+    async def save(self):
+        args = list(map(self.getValueOrDefault,self.__fields__))
+        args.append(self.getValueOrDefault(self.__primarykey__))#获取主键值 没有则拿Field中规定的默认值
+        r = await execute(self.__insert__,args)
+        if r!=1: #受影响的行数不是1
+            logging.warn('failed to insert record: affected rows:%s'%r)
+        return r
+
+    async def update(self):
+        args = list(map(self.getValueOrDefault,self.__fields__))
+        args.append(self.getValueOrDefault(self.__primarykey__))#获取主键值 没有则拿Field中规定的默认值
+        r = await execute(self.__insert__,args)
+        if r!=1: #受影响的行数不是1
+            logging.warn('failed to update record by primarykey: %s affected rows:%s'%(args[-1],r))
+        return r
+
+    async def remove(self):
+        args = [self.getValueOrDefault(self.__primarykey__)]
+        r = await execute(self.__delete__,args) # cur.execute(sql,args) args必须是tuple or list
+        if r!=1: #受影响的行数不是1
+            logging.warn('failed to delete record by primarykey: %s affected rows:%s'%(args[-1],r))
+        return r
+        
+
+        
+
+
+            
+
