@@ -1,3 +1,4 @@
+
 __author__ = 'xcl'
 
 import aiomysql, asyncio
@@ -65,7 +66,7 @@ class Field(object):
     def __init__(self,name,column_type,primarykey,default):
         self.name=name
         self.column_type=column_type
-        self.primarykey=primarykey #标志  是否为主键
+        self.primarykey=primarykey #标志   是否为主键
         self.default=default
     
     def __str__(self):
@@ -128,7 +129,9 @@ class ModelMetaclass(type):
         attrs['__delete__'] = "delete from %s where %s=?"%(tablename,primarykey)
         return type.__new__(cls,name,bases,attrs)
 
-
+'''
+Model xxx
+'''
 class Model(dict, metaclass=ModelMetaclass):
 
     def __init__(self, **kw):
