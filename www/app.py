@@ -1,15 +1,23 @@
+# -*- coding: utf-8 -*-
 import logging
 logging.basicConfig(level=logging.INFO)
-import os,json,time
+import os,json,time,asyncio
 from datetime import datetime
 from aiohttp import web
-
 from jinja2 import Environment, FileSystemLoader
+import configs
+from aiohttp import WSCloseCode
 
-import asyncio
-
+import orm
+from coroweb import add_routes,add_static
 # def index(request): # 原始简单的url处理函数
 #     return web.Response(body=b'<h1>Awesome</h1>',content_type='text/html')
+async def on_shutdown(app):
+    logging.info('on_shutdown,ready to shutdown')
+    for ws in set(app['websockets']):
+        await ws.close(code=WSCloseCode.GOING_AWAY,
+                       message='Server shutdown')
+
 
 def init_jinja2(app, **kw): #初始化 jinja2的 env
     logging.info('init jinja2...')
@@ -104,20 +112,30 @@ def datetime_filter(t):
     dt = datetime.fromtimestamp(t)
     return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 
-import orm
-from coroweb import add_routes,add_static
 async def init(loop):
-    await orm.create_pool(loop=loop, host='127.0.0.1', port=3306, user='www', password='www', db='awesome')
-    app = web.Application(loop=loop, middlewares=[ #拦截器 一个URL在被某个函数处理前，可以经过一系列的middleware的处理。
+    db = configs.configs.db
+    await orm.create_pool(**db)
+    #DeprecationWarning: loop argument is deprecated
+    app = web.Application(middlewares=[ #拦截器 一个URL在被某个函数处理前，可以经过一系列的middleware的处理。
         logger_factory, response_factory #工厂模式
     ])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
     add_static(app)
-    srv = await loop.create_server(app.make_handler(), 'localhost', 9000)
-    logging.info('server started at http://localhost:9000...')
-    return srv
+    app.on_shutdown.append(on_shutdown)
 
-loop = asyncio.get_event_loop()
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '192.168.2.101', 9000)
+    logging.info('server started at http://192.168.2.101:9000...')
+    await site.start()
+
+    # DeprecationWarning: Application.make_handler(...) is deprecated, use AppRunner API instead
+    # srv = await loop.create_server(app.make_handler(), '192.168.2.101', 9000)
+    # logging.info('server started at http://192.168.2.101:9000...')
+    # return srv
+
+loop = asyncio.new_event_loop()
 loop.run_until_complete(init(loop))
 loop.run_forever()
+

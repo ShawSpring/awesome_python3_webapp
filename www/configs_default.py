@@ -2,11 +2,11 @@
 
 configs={
     'db':{
-        'host':'0.0.0.0',
+        'host':'127.0.0.1',
         'port':3306, #mysql 默认的端口
         'user':'xcl',
-        'password':'mysql608213',
-        'database':'awesome'
+        'password':'password',
+        'db':'awesome'
     },
     'session':{
          'secret': 'AwEsOmE'

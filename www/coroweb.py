@@ -3,6 +3,7 @@ from aiohttp import web
 import os,inspect,logging,logging
 import functools
 from urllib import parse
+import asyncio
 
 from apis import APIError
 
@@ -16,11 +17,11 @@ def get(path):
         def wrapper(*args,**kw):
             return func(*args,**kw)
         wrapper.__method__= 'GET'
-        wrapper.__url__ = path
+        wrapper.__route__ = path
         return wrapper
     return decoration
 
-def pose(path):
+def post(path):
     def decoration(func):
         @functools.wraps(func)
         def wrapper(*args,**kw):

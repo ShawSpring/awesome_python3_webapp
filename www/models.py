@@ -12,7 +12,7 @@ def next_id():
 
 
 class User(Model):
-    __tablename__ = 'users'
+    __tablename__ = 'users' #数据库的表名
     id = StringField(primarykey=True,default=next_id,ddl='varchar(50)')
     name = StringField(ddl="varchar(50)")
     admin=BooleanField()
@@ -33,7 +33,7 @@ class Blog(Model):
     content = TextField()
     created_at =  StringField(default = time.time)
 
-class comment(Model):
+class Comment(Model):
     __tablename__ = 'comments'
     id = StringField(primarykey=True,default=next_id,ddl='varchar(50)')
     blog_id = StringField(ddl="varchar(50)")

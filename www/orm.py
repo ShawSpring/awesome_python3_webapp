@@ -23,8 +23,7 @@ async def create_pool(loop=None, **kw):
         maxsize=kw.get('maxsize', 10),
         minsize=kw.get('minsize', 1),
         loop=loop)
-
-
+        
 async def select(sql, args, size=None):
     log(sql, args)
     global __pool
