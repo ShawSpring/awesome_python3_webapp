@@ -168,6 +168,7 @@ def add_route(app, fn):
     logging.info('add route %s %s => %s(%s)' % (method, path, fn.__name__, ', '.join(inspect.signature(fn).parameters.keys())))
     app.router.add_route(method, path, RequestHandler(app, fn))
 
+
 #调用上面的add_route(),自动把handlers模块的所有符合条件的函数注册了: 
 def add_routes(app, module_name):
     n = module_name.rfind('.')
@@ -176,6 +177,7 @@ def add_routes(app, module_name):
     else:
         name = module_name[n+1:] # 形如import XXX.handles  则只取handls
         mod = getattr(__import__(module_name[:n], globals(), locals(), [name]), name)
+
     #对导入的mod 进行 扫描  
     for attr in dir(mod):
         if attr.startswith('_'):

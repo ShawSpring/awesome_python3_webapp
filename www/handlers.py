@@ -143,3 +143,14 @@ async def api_register_user(*, email, name, passwd):
     r.content_type = 'application/json'
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
+
+@get('/test')
+def test():
+    return {
+        '__template__':'test.html'
+    }
+
+@post('/api/querryuser')
+async def api_querry_user(*,email):
+    if not email or not email.strip():
+        raise APIValueError('email')  #会返回一个dict,被 response 里的函数json.dumps()

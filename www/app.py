@@ -87,12 +87,15 @@ async def response_factory(app, handler):
         logging.info('Response handler...')
         r = await handler(request)
         if isinstance(r, web.StreamResponse):
+            logging.info('Response: web.StreamResponse')
             return r
         if isinstance(r, bytes):
+            logging.info('Response: bytes %s'%r)
             resp = web.Response(body=r)
             resp.content_type = 'application/octet-stream'
             return resp
         if isinstance(r, str):
+            logging.info('Response: str %s'%str)
             if r.startswith('redirect:'):
                 return web.HTTPFound(r[9:])
             resp = web.Response(body=r.encode('utf-8'))
@@ -101,13 +104,13 @@ async def response_factory(app, handler):
         if isinstance(r, dict):
             template = r.get('__template__')
             if template is None:  #只要返回一个dict(对象也可以), 就能被转换成json
+                logging.info('Response: dict %s'%str(r))
                 resp = web.Response(body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
                 #ensure_ascii=False 中文才不会被转成unicode-escape 设置了转换函数后,可以直接由对象转换成json格式的字符串 
                 resp.content_type = 'application/json;charset=utf-8'
                 return resp
             else:
-                 ## 在handlers.py完全完成后,去掉下一行的双井号
-                ##r['__user__'] = request.__user__
+                ### 采用模板 template
                 resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
                 resp.content_type = 'text/html;charset=utf-8'
                 return resp
@@ -116,6 +119,7 @@ async def response_factory(app, handler):
         if isinstance(r, tuple) and len(r) == 2:
             t, m = r
             if isinstance(t, int) and t >= 100 and t < 600:
+                logging.info('Response: tuple t=%s  m=%s'%(t,str(m)))
                 return web.Response(t, str(m))
         # default:
         resp = web.Response(body=str(r).encode('utf-8'))

@@ -1,0 +1,10 @@
+{% extends '__base__.html' %}
+{% block title %}
+end block
+{% endblock %}
+{% block content %}
+<form action="/api/querryuser" method="POST">
+    <input name='email'>
+    <button type="submit">querry</button>
+</form>
+{% endblock %}
