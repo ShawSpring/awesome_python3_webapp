@@ -141,7 +141,7 @@ async def api_register_user(*, email, name, passwd):
     r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
     user.passwd = '******'
     r.content_type = 'application/json'
-    r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
+    r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')  #user可以直接dumps 继承自dict
     return r
 
 @get('/test')
@@ -154,3 +154,9 @@ def test():
 async def api_querry_user(*,email):
     if not email or not email.strip():
         raise APIValueError('email')  #会返回一个dict,被 response 里的函数json.dumps()
+    if not _RE_EMAIL.match(email):
+        raise APIValueError('email')
+    users = await User.findAll(where='email = ?',args = (email,))
+    if len(users) == 0:
+        raise APIError('Invalid email',email,'email not exist')
+    return json.dumps(users[0],ensure_ascii= False).encode('utf-8')

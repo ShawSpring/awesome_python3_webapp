@@ -2,9 +2,66 @@
 {% block title %}
 end block
 {% endblock %}
+
+{% block beforehead%}
+<script>
+
+function validateEmail(email) {
+    var re = /^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$/;
+    return re.test(email.toLowerCase());
+}
+
+$(function () {
+    var vm = new Vue({
+        el: '#vm',
+        data: {
+            name: '',
+            email: '',
+            password1: '',
+            password2: ''
+        },
+        methods: {
+            submit: function (event) {
+                event.preventDefault();
+                var $form = $('#vm');
+                // if (! this.name.trim()) {
+                //     return $form.showFormError('请输入名字');
+                // }
+                // if (! validateEmail(this.email.trim().toLowerCase())) {
+                //     return $form.showFormError('请输入正确的Email地址');
+                // }
+                // if (this.password1.length < 6) {
+                //     return $form.showFormError('口令长度至少为6个字符');
+                // }
+                // if (this.password1 !== this.password2) {
+                //     return $form.showFormError('两次输入的口令不一致');
+                // }
+                var email = this.email.trim().toLowerCase();
+                $form.postJSON('/api/querryuser', {
+                    email: email
+                }, function (err, r) {
+                    if (err) {
+                        return $form.showFormError(err);
+                    }
+                    return location.assign('/');
+                });
+            }
+        }
+    });
+    $('#vm').show();
+});
+
+</script>
+
+{% endblock %}
+
 {% block content %}
-<form action="/api/querryuser" method="POST">
-    <input name='email'>
+<form id="vm" v-on="submit: submit" class="uk-form uk-form-stacked">
+    <!-- 返回的错误消息在下面div 中显示 -->
+    <div class="uk-alert uk-alert-danger uk-hidden"></div>  
+    <div class="uk-form-controls">
+    <input v-model="email" type="text" name='email'>
+    <div>
     <button type="submit">querry</button>
 </form>
 {% endblock %}
