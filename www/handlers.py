@@ -58,9 +58,19 @@ def index(request):
         Blog(id='2', name='Something New', summary=summary, created_at=time.time()-3600),
         Blog(id='3', name='Learn Swift', summary=summary, created_at=time.time()-7200)
     ]
+    # ## 增加显示目前用户名的功能
+    # request.__user__ = None
+    # cookie_str = request.cookies.get(COOKIE_NAME)
+    # if cookie_str:
+    #     user = yield from cookie2user(cookie_str)
+    #     if user:
+    #         request.__user__ = user
+
+    user = getattr(request,'__user__',None)
     return {
         '__template__': 'blogs.html',
-        'blogs': blogs
+        'blogs': blogs,
+        '__user__':user
     }
 
 @get('/register')
