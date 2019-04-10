@@ -27,7 +27,7 @@ def post(path):
         def wrapper(*args,**kw):
             return func(*args,**kw)
         wrapper.__method__='POST'
-        wrapper.__url__=path
+        wrapper.__route__=path
         return wrapper
     return decoration
 
@@ -120,6 +120,7 @@ class RequestHandler(object):
                 if qs:
                     kw = dict()
                     for k, v in parse.parse_qs(qs, True).items():
+                        #logging.info('parse_qs, %s : %s'%(k,v))
                         kw[k] = v[0]
         if kw is None:
             kw = dict(**request.match_info)

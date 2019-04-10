@@ -4,6 +4,11 @@ JSON API definition.
 
 import json, logging, inspect, functools
 
+## 建立Page类来处理分页,可以在page_size更改每页项目的个数
+
+
+
+## 以下为API的几类错误代码
 class APIError(Exception):
     '''
     the base APIError which contains error(required), data(optional) and message(optional).
