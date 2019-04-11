@@ -104,7 +104,7 @@ async def response_factory(app, handler):
         if isinstance(r, dict):
             template = r.get('__template__')
             if template is None:  #只要返回一个dict(对象也可以), 就能被转换成json
-                logging.info('Response: dict %s'%str(r))  ##  raise APIValueError('email')   Response: dict {'error': 'value:invalid', 'data': 'email', 'message': ''}
+                # logging.info('Response: dict %s'%str(r))  ##  raise APIValueError('email')   Response: dict {'error': 'value:invalid', 'data': 'email', 'message': ''}
                 resp = web.Response(body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
                 #ensure_ascii=False 中文才不会被转成unicode-escape 设置了转换函数后,可以直接由对象转换成json格式的字符串 
                 resp.content_type = 'application/json;charset=utf-8'

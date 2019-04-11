@@ -5,13 +5,17 @@ import markdown2
 from aiohttp import web
 
 from coroweb import get, post
-from apis import APIValueError, APIResourceNotFoundError,APIError
+from apis import APIValueError, APIResourceNotFoundError,APIError,APIPermissionError
 
 from models import User, Comment, Blog, next_id
 from config import configs
 
 COOKIE_NAME = 'awesession'
 _COOKIE_KEY = configs.session.secret
+
+def check_admin(request):
+    if request.__user__ is None or not request.__user__.admin:
+        raise APIPermissionError()
 
 def user2cookie(user, max_age):
     '''
@@ -37,7 +41,7 @@ def cookie2user(cookie_str):
         uid, expires, sha1 = L
         if int(expires) < time.time():
             return None
-        user = yield from User.find(uid)
+        user = yield from User.find(uid) #每次cookie验证都需要用到数据库
         if user is None:
             return None
         s = '%s-%s-%s-%s' % (uid, user.passwd, expires, _COOKIE_KEY)
@@ -114,7 +118,7 @@ async def authenticate(*, email, passwd):
 def signout(request):
     referer = request.headers.get('Referer')
     r = web.HTTPFound(referer or '/')
-    r.set_cookie(COOKIE_NAME, '-deleted-', max_age=0, httponly=True)
+    r.set_cookie(COOKIE_NAME, '-deleted-', max_age=0, httponly=True) #max_age=0 就会被浏览器删除该cookie
     logging.info('user signed out.')
     return r
 
@@ -143,6 +147,49 @@ async def api_register_user(*, email, name, passwd):
     r.content_type = 'application/json'
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')  #user可以直接dumps 继承自dict
     return r
+
+
+@get('/manage/blogs/create')
+def manange_blogs_create():
+    return {
+        '__template__':'manage_blog_edit.html', #可以作为 创建 也可以 作为修改编辑
+        'id':'',
+        'action':'/api/blogs' #调用创建blog的action 
+    }
+
+# @get('/blog/{id}')
+# def get_blog(id):
+#     blog = yield from Blog.find(id)
+#     comments = yield from Comment.findAll('blog_id=?', [id], orderBy='created_at desc')
+#     for c in comments:
+#         c.html_content = text2html(c.content)
+#     blog.html_content = markdown2.markdown(blog.content)
+#     return {
+#         '__template__': 'blog.html',
+#         'blog': blog,
+#         'comments': comments
+#     }
+
+@get('/api/blogs/{id}')
+async def api_get_blog(*,id):
+    blog = await Blog.find(id)
+    return blog
+
+
+@post('/api/blogs') #关于用户的信息已经在 auth_factory 里通过验证cookie的到了
+async def api_create_blog(request,*,name,summary,content): #只需要关注blog本身的信息
+    check_admin(request)
+    if not name or not name.strip():
+        raise APIValueError('name','blog name cannnot be empty')
+    if not summary or not summary.strip():
+        raise APIValueError('summary','blog summary cannot be empty')
+    if not content or not content.strip():
+        raise APIValueError('content','blog content cannot be empty')
+    blog = Blog(user_id=request.__user__.id,user_name=request.__user__.name,user_image=request.__user__.image,
+    name=name.strip(),summary = summary.strip(),content =content.strip())
+    await blog.save()
+    return blog
+
 
 @get('/test')
 def test():
