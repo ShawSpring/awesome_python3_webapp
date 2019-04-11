@@ -27,10 +27,10 @@ async def create_pool(loop=None, **kw):
 async def select(sql, args, size=None):
     log(sql, args)
     global __pool
-    async with __pool.get() as conn:  #with (await __pool) as conn:
+    async with __pool.acquire() as conn:  #with (await __pool) as conn:
         async with conn.cursor(
-                aiomysql.DictCursor
-        ) as cur:  # cur = await conn.cursor(aiomysql.DictCursor)
+                aiomysql.DictCursor # 返回的结果是dict类型[{'__num__': 3}] 默认是tuple类型 ((3,),)
+        ) as cur:  
             await cur.execute(sql.replace('?','%s'), args or ())
             #SQL语句的占位符是?，而MySQL的占位符是%s
             if size:
@@ -169,15 +169,15 @@ class Model(dict, metaclass=ModelMetaclass):
     @classmethod
     async def findNumber(cls,selectField,where=None,args=None):
         #find number by selelct and where
-        sqlstr = 'select %s __num__ from %s'%(selectField,cls.__table__)
+        sqlstr = ['select %s __num__ from %s'%(selectField,cls.__tablename__)]
         if where:
-            sqlstr+=' where '
-            sqlstr+'%s'%where
-        r = await select(sqlstr,args,1) #返回记录集
+            sqlstr.append('where')
+            sqlstr.append(where)
+        r = await select(' '.join(sqlstr),args,1) #返回记录集
         if len(r)==0: #返回记录条数为0
             return None
-        #return rs[0]['__num__']
-        return rs[0][0] #返回第一条记录的第一个值
+        return r[0]['__num__']
+        #return r[0][0] #返回第一条记录的第一个值
     
 
     @classmethod

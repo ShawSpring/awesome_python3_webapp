@@ -5,7 +5,7 @@ import markdown2
 from aiohttp import web
 
 from coroweb import get, post
-from apis import APIValueError, APIResourceNotFoundError,APIError,APIPermissionError
+from apis import APIValueError, APIResourceNotFoundError,APIError,APIPermissionError,Page
 
 from models import User, Comment, Blog, next_id
 from config import configs
@@ -16,6 +16,16 @@ _COOKIE_KEY = configs.session.secret
 def check_admin(request):
     if request.__user__ is None or not request.__user__.admin:
         raise APIPermissionError()
+
+def get_page_index(pageStr):
+    p=1
+    try:
+        p = int(pageStr)
+    except ValueError as e:
+        pass
+    if p<1:
+        p=1
+    return p
 
 def user2cookie(user, max_age):
     '''
@@ -62,14 +72,6 @@ def index(request):
         Blog(id='2', name='Something New', summary=summary, created_at=time.time()-3600),
         Blog(id='3', name='Learn Swift', summary=summary, created_at=time.time()-7200)
     ]
-    # ## 增加显示目前用户名的功能
-    # request.__user__ = None
-    # cookie_str = request.cookies.get(COOKIE_NAME)
-    # if cookie_str:
-    #     user = yield from cookie2user(cookie_str)
-    #     if user:
-    #         request.__user__ = user
-
     user = getattr(request,'__user__',None)
     return {
         '__template__': 'blogs.html',
@@ -148,6 +150,14 @@ async def api_register_user(*, email, name, passwd):
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')  #user可以直接dumps 继承自dict
     return r
 
+@get('/manage/blogs')
+def manage_blogs(*, page='1',request):
+    user = getattr(request,'__user__',None)
+    return {
+        '__template__': 'manage_blogs.html',
+        'page_index': get_page_index(page),
+        '__user__':user
+    }
 
 @get('/manage/blogs/create')
 def manange_blogs_create():
@@ -170,10 +180,21 @@ def manange_blogs_create():
 #         'comments': comments
 #     }
 
+@get('/api/blogs') #manage_blogs 里调用 getJSON('/api/blogs',{ page:{{ page_index }}},function (err,results){}
+async def api_blogs(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Blog.findNumber('count(id)') #查找博客数量
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, blogs=())
+    blogs = await Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, blogs=blogs)
+
+
 @get('/api/blogs/{id}')
 async def api_get_blog(*,id):
     blog = await Blog.find(id)
-    return blog
+    return blog #暂时 只是返回json数据 没有view
 
 
 @post('/api/blogs') #关于用户的信息已经在 auth_factory 里通过验证cookie的到了
