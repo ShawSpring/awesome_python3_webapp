@@ -19,7 +19,7 @@ function initVM(blog){
                         $form.showFormError(err);
                     }
                     else{
-                        return location.assign('/api/blogs/'+r.id);
+                        return location.assign('/manage/blogs');
                     }
                 });
             }
@@ -30,7 +30,7 @@ function initVM(blog){
 }
 $(function(){
     if(ID){
-        getJSON('/api/bogs/'+ID,function(err,blog){
+        getJSON('/api/blog/'+ID,function(err,blog){
             if(err){
                 return fatal(err);
             }
