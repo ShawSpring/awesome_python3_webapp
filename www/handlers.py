@@ -13,9 +13,13 @@ from config import configs
 COOKIE_NAME = 'awesession'
 _COOKIE_KEY = configs.session.secret
 
-def check_admin(request):
-    if request.__user__ is None or not request.__user__.admin:
+# 对博客的操作 只有作者 和 管理员才具有权限 更新  删除 创建
+def check_peimission(request,user_id_from_blog):
+    if request.__user__ is None or request.__user__.id != user_id_from_blog:
         raise APIPermissionError()
+    
+    return request.__user__.id
+
 def text2html(text):
     lines = map(lambda s: '<p>%s</p>' % s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), filter(lambda s: s.strip() != '', text.split('\n')))
     return ''.join(lines)
@@ -154,11 +158,11 @@ async def api_register_user(*, email, name, passwd):
     return r
 
 @get('/manage/blogs')
-def manage_blogs(*, page='1'):
-    
+def manage_blogs(*, page='1',request):
     return {
         '__template__': 'manage_blogs.html',
-        'page_index': get_page_index(page)
+        'page_index': get_page_index(page),
+        'user_id':request.__user__.id
     }
  
 @get('/manage/blogs/create')
@@ -176,6 +180,7 @@ def manange_blogs_edit(*,id):
         'id':id,
         'action':'/api/blog/%s'%id # 与 之对应 @get('/api/blogs/{id}')
     }
+
 
 @get('/blog/{id}')
 async def get_blog(id):
@@ -206,14 +211,15 @@ async def get_blog(id):
 
 #拿到一页博客展示
 @get('/api/blogs') #manage_blogs 里调用 getJSON('/api/blogs',{ page:{{ page_index }}},function (err,results){}
-async def api_blogs(*, page='1'):
+async def api_blogs(*, page='1',request):
     page_index = get_page_index(page)
-    num = await Blog.findNumber('count(id)') #查找博客数量
+    num = await Blog.findNumber('count(id)','user_id = ?',[request.__user__.id]) #查找博客数量
     p = Page(num, page_index)
     if num == 0:
         return dict(page=p, blogs=())
-    blogs = await Blog.findAll(orderby='created_at desc', limit=(p.offset, p.limit))
+    blogs = await Blog.findAll(where ='user_id = ?',args = [request.__user__.id],orderby='created_at desc', limit=(p.offset, p.limit))
     return dict(page=p, blogs=blogs)
+
 
 #拿到blog id=
 @get('/api/blog/{id}')
@@ -224,25 +230,27 @@ async def api_get_blog(*,id):
 
 #更新 blog id=
 @post('/api/blog/{id}')
-def api_update_blog(id, request, *, name, summary, content):
-    check_admin(request)
-    blog = yield from Blog.find(id)
+async def api_update_blog(id, request, *, name, summary, content):
     if not name or not name.strip():
         raise APIValueError('name', 'name cannot be empty.')
     if not summary or not summary.strip():
         raise APIValueError('summary', 'summary cannot be empty.')
     if not content or not content.strip():
         raise APIValueError('content', 'content cannot be empty.')
+    blog = await Blog.find(id)
+    check_peimission(request,blog.user_id)
     blog.name = name.strip()
     blog.summary = summary.strip()
     blog.content = content.strip()
-    yield from blog.update()
+    await blog.update()
     return blog
 
 #创建blog
 @post('/api/blog') #关于用户的信息已经在 auth_factory 里通过验证cookie的到了
 async def api_create_blog(request,*,name,summary,content): #只需要关注blog本身的信息
-    check_admin(request)
+    if request.__user__ is None:
+        raise APIPermissionError()
+
     if not name or not name.strip():
         raise APIValueError('name','blog name cannnot be empty')
     if not summary or not summary.strip():
@@ -256,8 +264,8 @@ async def api_create_blog(request,*,name,summary,content): #只需要关注blog�
 
 @post('/api/blog/{id}/delete')
 async def api_delete_blog(request,*,id):
-    check_admin(request)
     blog  = await Blog.find(id)
+    check_peimission(request,id)
     await blog.remove()
     return dict(id=id)
 

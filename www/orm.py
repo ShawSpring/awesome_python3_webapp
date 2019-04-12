@@ -123,7 +123,8 @@ class ModelMetaclass(type):
         %(tablename,','.join(fields),primarykey,','.join(['?' for x in range(len(fields)+1)]))
         #update set id=?,name=?,email=? where id =?
         attrs['__update__'] = "update %s set %s where %s =?"\
-        %(tablename,",".join(list(map(lambda f:"%s=?"%mappinngs.get(f).name or f,fields))),primarykey)
+        %(tablename,",".join(list(map(lambda f:"%s=?"%(mappinngs.get(f).name or f),fields))),primarykey)
+
         #delete from user where %s =?
         attrs['__delete__'] = "delete from %s where %s=?"%(tablename,primarykey)
         return type.__new__(cls,name,bases,attrs)
@@ -217,7 +218,7 @@ class Model(dict, metaclass=ModelMetaclass):
     async def update(self):
         args = list(map(self.getValueOrDefault,self.__fields__))
         args.append(self.getValueOrDefault(self.__primarykey__))#获取主键值 没有则拿Field中规定的默认值
-        r = await execute(self.__insert__,args)
+        r = await execute(self.__update__,args)
         if r!=1: #受影响的行数不是1
             logging.warn('failed to update record by primarykey: %s affected rows:%s'%(args[-1],r))
         return r
