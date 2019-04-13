@@ -59,8 +59,9 @@ $(function () {
 
 {% block content %}
 
-    <div class="uk-width-2-3">
-        <h1>欢迎注册！</h1>
+    <div class="uk-width-1-2 uk-flex-right">
+        <h1 style="text-align:center">欢迎注册！</h1>
+        <div class="uk-flex uk-flex-middle uk-flex-space-between">
         <form id="vm" v-on="submit: submit" class="uk-form uk-form-stacked">
             <div class="uk-alert uk-alert-danger uk-hidden"></div>
             <div class="uk-form-row">
@@ -88,9 +89,13 @@ $(function () {
                 </div>
             </div>
             <div class="uk-form-row">
-                <button type="submit" class="uk-button uk-button-primary"><i class="uk-icon-user"></i> 注册</button>
+                <button type="submit" class="uk-button uk-button-primary" style="height: 50px;float: right;"><i class="uk-icon-user"></i> 注册</button>
+            </div>
+            <div class="uk-form_row">
+                    “注册” 按钮，即表示您同意并愿意遵守 <a href='#0'>用户协议</a>。
             </div>
         </form>
+        </div>
     </div>
 
 {% endblock %}

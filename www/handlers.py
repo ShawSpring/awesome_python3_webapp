@@ -15,10 +15,14 @@ _COOKIE_KEY = configs.session.secret
 
 # 对博客的操作 只有作者 和 管理员才具有权限 更新  删除 创建
 def check_peimission(request,user_id_from_blog):
-    if request.__user__ is None or request.__user__.id != user_id_from_blog:
+    user = request.__user__
+    if user is not None and user.admin: #是管理员直接授权
+        return
+    elif user is not None and request.__user__.id == user_id_from_blog: #作者授权
+        return
+    else: #其它没考虑到的情况全部 不授权
         raise APIPermissionError()
-    
-    return request.__user__.id
+
 
 def text2html(text):
     lines = map(lambda s: '<p>%s</p>' % s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), filter(lambda s: s.strip() != '', text.split('\n')))
@@ -71,6 +75,13 @@ def cookie2user(cookie_str):
         logging.exception(e)
         return None
 
+################################################################################################
+'''
+下面是 URL  
+
+'''
+#################################################################################################
+
 @get('/')
 def index(request):
     summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
@@ -98,31 +109,6 @@ def signin():
         '__template__': 'signin.html'
     }
 
-@post('/api/authenticate')
-async def authenticate(*, email, passwd):
-    if not email:
-        raise APIValueError('email', 'Invalid email.')
-    if not passwd:
-        raise APIValueError('passwd', 'Invalid password.')
-    users = await User.findAll('email=?', [email])
-    if len(users) == 0:
-        raise APIValueError('email', 'Email not exist.')
-    user = users[0]
-    # check passwd:
-    sha1 = hashlib.sha1()
-    sha1.update(user.id.encode('utf-8'))
-    sha1.update(b':')
-    sha1.update(passwd.encode('utf-8'))
-    if user.passwd != sha1.hexdigest():
-        raise APIValueError('passwd', 'Invalid password.')
-    # authenticate ok, set cookie:
-    r = web.Response()
-    r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
-    user.passwd = '******'
-    r.content_type = 'application/json'
-    r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
-    return r
-
 @get('/signout')
 def signout(request):
     referer = request.headers.get('Referer')
@@ -131,31 +117,12 @@ def signout(request):
     logging.info('user signed out.')
     return r
 
-_RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
-_RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
+@get('/resetpassword') 
+def resetpassword():
 
-@post('/api/users')
-async def api_register_user(*, email, name, passwd):
-    if not name or not name.strip():
-        raise APIValueError('name')
-    if not email or not _RE_EMAIL.match(email):
-        raise APIValueError('email')
-    if not passwd or not _RE_SHA1.match(passwd):
-        raise APIValueError('passwd')
-    users = await User.findAll('email=?', [email])
-    if len(users) > 0:
-        raise APIError('register:failed', 'email', 'Email is already in use.')
-    uid = next_id()
-    sha1_passwd = '%s:%s' % (uid, passwd)
-    user = User(id=uid, name=name.strip(), email=email, passwd=hashlib.sha1(sha1_passwd.encode('utf-8')).hexdigest(), image='http://www.gravatar.com/avatar/%s?d=mm&s=120' % hashlib.md5(email.encode('utf-8')).hexdigest())
-    await user.save()
-    # make session cookie:
-    r = web.Response()
-    r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
-    user.passwd = '******'
-    r.content_type = 'application/json'
-    r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')  #user可以直接dumps 继承自dict
-    return r
+    return{
+        '__template__':'accountmanage.html'
+    }
 
 @get('/manage/blogs')
 def manage_blogs(*, page='1',request):
@@ -196,18 +163,62 @@ async def get_blog(id):
         
     }
 
-# @get('/blog/{id}')
-# def get_blog(id):
-#     blog = yield from Blog.find(id)
-#     comments = yield from Comment.findAll('blog_id=?', [id], orderBy='created_at desc')
-#     for c in comments:
-#         c.html_content = text2html(c.content)
-#     blog.html_content = markdown2.markdown(blog.content)
-#     return {
-#         '__template__': 'blog.html',
-#         'blog': blog,
-#         'comments': comments
-#     }
+################################################################################################
+'''
+下面是 api  
+
+'''
+#################################################################################################
+_RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
+_RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
+
+@post('/api/users')
+async def api_register_user(*, email, name, passwd):
+    if not name or not name.strip():
+        raise APIValueError('name')
+    if not email or not _RE_EMAIL.match(email):
+        raise APIValueError('email')
+    if not passwd or not _RE_SHA1.match(passwd):
+        raise APIValueError('passwd')
+    users = await User.findAll('email=?', [email])
+    if len(users) > 0:
+        raise APIError('register:failed', 'email', 'Email is already in use.')
+    uid = next_id()
+    sha1_passwd = '%s:%s' % (uid, passwd)
+    user = User(id=uid, name=name.strip(), email=email, passwd=hashlib.sha1(sha1_passwd.encode('utf-8')).hexdigest(), image='http://www.gravatar.com/avatar/%s?d=mm&s=120' % hashlib.md5(email.encode('utf-8')).hexdigest())
+    await user.save()
+    # make session cookie:
+    r = web.Response()
+    r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
+    user.passwd = '******'
+    r.content_type = 'application/json'
+    r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')  #user可以直接dumps 继承自dict
+    return r
+
+@post('/api/authenticate')
+async def authenticate(*, email, passwd):
+    if not email:
+        raise APIValueError('email', 'Invalid email.')
+    if not passwd:
+        raise APIValueError('passwd', 'Invalid password.')
+    users = await User.findAll('email=?', [email])
+    if len(users) == 0:
+        raise APIValueError('email', 'Email not exist.')
+    user = users[0]
+    # check passwd:
+    sha1 = hashlib.sha1()
+    sha1.update(user.id.encode('utf-8'))
+    sha1.update(b':')
+    sha1.update(passwd.encode('utf-8'))
+    if user.passwd != sha1.hexdigest():
+        raise APIValueError('passwd', 'Invalid password.')
+    # authenticate ok, set cookie:
+    r = web.Response()
+    r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
+    user.passwd = '******'
+    r.content_type = 'application/json'
+    r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
+    return r
 
 #拿到一页博客展示
 @get('/api/blogs') #manage_blogs 里调用 getJSON('/api/blogs',{ page:{{ page_index }}},function (err,results){}
@@ -269,6 +280,30 @@ async def api_delete_blog(request,*,id):
     await blog.remove()
     return dict(id=id)
 
+@post('/api/blogs/{id}/comment') #fa 表评论
+async def api_blogs_comment(id,request,*,content):
+    user = request.__user__
+    if not user:
+        raise APIPermissionError()
+    if not content or not content.strip():
+        raise APIValueError('content', 'content cannot be empty.')
+    c = Comment(blog_id = id,user_id=user.id,user_name =user.name,user_image =user.image,content=content.strip())
+    await c.save()
+    return c
+
+from aiosendemail import sendemail
+
+@post('/api/account/email')
+async def api_account_email(request,*,email):
+    logging.info('ready to send email to %s for reset password!'%email)
+    if not email or not _RE_EMAIL.match(email):
+        raise APIValueError('email')
+    users = await User.findAll('email=?', [email])
+    if len(users) <1:
+        raise APIError('send email failed', 'email', 'Email is not exist.')
+        
+    await sendemail(email,'http://www.baidu.com')
+    return None
 
 @get('/test')
 def test():

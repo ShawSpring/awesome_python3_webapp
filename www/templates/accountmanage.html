@@ -1,0 +1,74 @@
+{% extends '__base__.html' %}
+
+{% block title %}账户管理{% endblock %}
+
+{% block beforehead %}
+
+<script>
+
+    function validateEmail(email) {
+        var re = /^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$/;
+        return re.test(email.toLowerCase());
+    }
+
+    $(function () {
+        var vm = new Vue({
+            el: '#vm',
+            data: {
+                email: ''
+            },
+            methods: {
+                submit: function (event) {
+                    event.preventDefault();
+                    var $form = $('#vm');
+                    if (!validateEmail(this.email.trim().toLowerCase())) {
+                        return $form.showFormError('请输入正确的Email地址');
+                    }
+                    var email = this.email.trim().toLowerCase();
+                    
+                    $form.postJSON('api/account/email', {
+                        email: email
+                    }, function (err, r) {
+                        if (err) {
+                            return $form.showFormError(err);
+                        }
+                        $('#ret').show();
+                        // return location.assign('/');
+                    });
+                }
+            }
+        });
+        $('#vm').show();
+    });
+
+</script>
+
+{% endblock %}
+
+{% block content %}
+<div class="uk-height-1-1">
+    <div  style="width: 320px">
+        <p style="text-align:center;"><a href="/" class="uk-icon-button"><i class="uk-icon-html5"></i></a> <a href="/">Awesome Python
+                Webapp</a>
+        </p>
+        <h2>找回密码</h2>
+        <form id="vm" v-on="submit: submit" class="uk-panel uk-panel-box uk-form">
+            <div class="uk-alert uk-alert-danger uk-hidden"></div>
+            <div class="uk-form-row">
+                <label class="uk-form-label">请填写注册的邮箱地址:</label>
+                <div class="uk-form-icon uk-width-1-1">
+                    <i class="uk-icon-envelope-o"></i>
+                    <input v-model="email" name="email" type="text" placeholder="电子邮件" maxlength="50"
+                        class="uk-width-1-1 uk-form-large">
+                </div>
+            </div>
+            
+            <div class="uk-form-row">
+                <button type="submit" class="uk-width-1-1 uk-button uk-button-primary uk-button-large"><i
+                        class="uk-icon-sign-in"></i> 提交</button>
+            </div>
+        </form>
+        <div id ="ret" class="uk-alert uk-alert-success uk-hidden">邮件已发送,请登录邮箱进行重置密码</div>
+    </div>
+</div>
+{% endblock %}
